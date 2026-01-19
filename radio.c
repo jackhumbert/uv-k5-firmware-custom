@@ -50,7 +50,11 @@ const char gModulationStr[MODULATION_UKNOWN][4] = {
 
 #ifdef ENABLE_BYP_RAW_DEMODULATORS
     [MODULATION_BYP]="BYP",
-    [MODULATION_RAW]="RAW"
+    [MODULATION_RAW]="RAW",
+#endif
+
+#ifdef ENABLE_CW
+    [MODULATION_CW]="CW"
 #endif
 };
 
@@ -990,6 +994,12 @@ void RADIO_SetTxParameters(void)
     }
 }
 
+__inline uint16_t scale_freq(const uint16_t freq)
+{
+//  return (((uint32_t)freq * 1032444u) + 50000u) / 100000u;   // with rounding
+    return (((uint32_t)freq * 1353245u) + (1u << 16)) >> 17;   // with rounding
+}
+
 void RADIO_SetModulation(ModulationMode_t modulation)
 {
     BK4819_AF_Type_t mod;
@@ -1013,7 +1023,22 @@ void RADIO_SetModulation(ModulationMode_t modulation)
             mod = BK4819_AF_BASEBAND1;
             break;
 #endif
+
+#ifdef ENABLE_CW
+        case MODULATION_CW:
+            mod = BK4819_AF_ALAM;
+            break;
+#endif
     }
+
+#ifdef ENABLE_CW
+    if (modulation == MODULATION_CW) {
+        BK4819_WriteRegister(BK4819_REG_70, BK4819_REG_70_ENABLE_TONE1 | ((1 & 0x7f) << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
+        BK4819_WriteRegister(BK4819_REG_71, scale_freq(700));
+    } else {
+        BK4819_WriteRegister(BK4819_REG_70, 0);
+    }
+#endif
 
     BK4819_SetAF(mod);
 
@@ -1124,7 +1149,7 @@ void RADIO_PrepareTX(void)
         State = VFO_STATE_VOLTAGE_HIGH;
     }
 #ifndef ENABLE_TX_WHEN_AM
-    else if (gCurrentVfo->Modulation != MODULATION_FM) {
+    else if (gCurrentVfo->Modulation == MODULATION_AM) {
         // not allowed to TX if in AM mode
         State = VFO_STATE_TX_DISABLE;
     }

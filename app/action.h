@@ -51,6 +51,9 @@ void ACTION_SwitchDemodul(void);
     #endif
 #endif
 
+void ACTION_SqlInc(void);
+void ACTION_SqlDec(void);
+
 void ACTION_Handle(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
 #endif

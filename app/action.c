@@ -126,6 +126,8 @@ void (*action_opt_table[])(void) = {
     [ACTION_OPT_REGA_ALARM] = &ACTION_RegaAlarm,
     [ACTION_OPT_REGA_TEST] = &ACTION_RegaTest,
 #endif
+    [ACTION_OPT_SQL_INC] = &ACTION_SqlInc,
+    [ACTION_OPT_SQL_DEC] = &ACTION_SqlDec,
 };
 
 static_assert(ARRAY_SIZE(action_opt_table) == ACTION_OPT_LEN);
@@ -509,6 +511,30 @@ void ACTION_RxMode(void)
     }
 
     ACTION_Update();
+}
+
+void ACTION_SqlInc(void) {
+
+    int32_t new_value = gEeprom.SQUELCH_LEVEL + 1;
+
+    if (new_value < 0) new_value = 0;
+    else
+    if (new_value > 9) new_value = 9;
+
+    gEeprom.SQUELCH_LEVEL = new_value;
+    gVfoConfigureMode     = VFO_CONFIGURE;
+}
+
+void ACTION_SqlDec(void) {
+
+    int32_t new_value = gEeprom.SQUELCH_LEVEL - 1;
+
+    if (new_value < 0) new_value = 0;
+    else
+    if (new_value > 9) new_value = 9;
+
+    gEeprom.SQUELCH_LEVEL = new_value;
+    gVfoConfigureMode     = VFO_CONFIGURE;
 }
 
 void ACTION_MainOnly(void)

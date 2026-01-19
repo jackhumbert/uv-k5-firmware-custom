@@ -465,6 +465,8 @@ const t_sidefunction gSubMenu_SIDEFUNCTIONS[] =
         {"REMOVE\nOFFSET",  ACTION_OPT_REMOVE_OFFSET},
     #endif
 #endif
+    {"SQL+",            ACTION_OPT_SQL_INC},
+    {"SQL-",            ACTION_OPT_SQL_DEC},
 };
 
 const uint8_t gSubMenu_SIDEFUNCTIONS_size = ARRAY_SIZE(gSubMenu_SIDEFUNCTIONS);

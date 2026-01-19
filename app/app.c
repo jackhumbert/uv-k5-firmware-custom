@@ -473,6 +473,10 @@ Skip:
     }
 }
 
+static void HandleCWTransmit(void) {
+    
+}
+
 static void HandlePowerSave()
 {
     if (!gRxIdleMode) {
@@ -488,6 +492,9 @@ static void (*HandleFunction_fn_table[])(void) = {
     [FUNCTION_RECEIVE] = &HandleReceive,
     [FUNCTION_POWER_SAVE] = &HandlePowerSave,
     [FUNCTION_BAND_SCOPE] = &FUNCTION_NOP,
+#ifdef ENABLE_CW
+    [FUNCTION_CW_TRANSMIT] = &HandleCWTransmit,
+#endif
 };
 
 static_assert(ARRAY_SIZE(HandleFunction_fn_table) == FUNCTION_N_ELEM);

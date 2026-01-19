@@ -26,8 +26,8 @@ enum BK4819_AF_Type_t
 {
     BK4819_AF_MUTE      =  0u,  //
     BK4819_AF_FM        =  1u,  // FM
-    BK4819_AF_ALAM      =  2u,  //
-    BK4819_AF_BEEP      =  3u,  //
+    BK4819_AF_ALAM      =  2u,  // Tone out for RX (enable Tone1 first) 
+    BK4819_AF_BEEP      =  3u,  // Beep out for TX (enable Tone1 first and set REG_03[9] = 1 to enable AF)
     BK4819_AF_BASEBAND1 =  4u,  // RAW
     BK4819_AF_BASEBAND2 =  5u,  // USB
     BK4819_AF_CTCO      =  6u,  // strange LF audio .. maybe the CTCSS LF line ?

@@ -28,6 +28,9 @@ enum FUNCTION_Type_t
     FUNCTION_RECEIVE,         // RX mode, squelch closed
     FUNCTION_POWER_SAVE,      // sleeping
     FUNCTION_BAND_SCOPE,      // bandscope mode (panadpter/spectrum) .. not yet implemented
+#ifdef ENABLE_CW
+    FUNCTION_CW_TRANSMIT,     // trasmitting CW
+#endif
     FUNCTION_N_ELEM
 };
 

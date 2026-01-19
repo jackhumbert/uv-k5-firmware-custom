@@ -47,6 +47,8 @@ ENABLE_SCAN_RANGES              ?= 1
 ENABLE_REGA                     ?= 0
 # Thank you @reppad
 ENABLE_EXTRA_UART_CMD           ?= 0
+# jackhumbert
+ENABLE_CW						?= 1
 
 # ---- F4HWN MODS ----
 
@@ -504,6 +506,9 @@ ifeq ($(ENABLE_FEAT_F4HWN_DEBUG),1)
 endif
 ifeq ($(ENABLE_EXTRA_UART_CMD),1)
 	CFLAGS  += -DENABLE_EXTRA_UART_CMD
+endif
+ifeq ($(ENABLE_CW),1)
+	CFLAGS  += -DENABLE_CW
 endif
 
 LDFLAGS =
