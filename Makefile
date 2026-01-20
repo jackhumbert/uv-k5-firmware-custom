@@ -509,6 +509,7 @@ ifeq ($(ENABLE_EXTRA_UART_CMD),1)
 endif
 ifeq ($(ENABLE_CW),1)
 	CFLAGS  += -DENABLE_CW
+	OBJS += cw.o
 endif
 
 LDFLAGS =

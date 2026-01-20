@@ -240,8 +240,6 @@ void FUNCTION_Transmit()
     }
 }
 
-
-
 void FUNCTION_Select(FUNCTION_Type_t Function)
 {
     const FUNCTION_Type_t PreviousFunction = gCurrentFunction;

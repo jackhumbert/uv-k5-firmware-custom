@@ -42,6 +42,10 @@
     #include "driver/system.h"
 #endif
 
+#ifdef ENABLE_CW
+    #include "cw.h"
+#endif
+
 center_line_t center_line = CENTER_LINE_NONE;
 
 #ifdef ENABLE_FEAT_F4HWN
@@ -1123,6 +1127,19 @@ void UI_DisplayMain(void)
 #endif
                 break;
             }
+#ifdef ENABLE_CW
+            case MODULATION_CW: {
+                    // s = "";
+                    if (gCWState == CW_INPUT_ENABLED) {
+                        t = "CWT";
+                        // s = "INPUT";
+                    } else {
+                        t = "CW";
+                    }
+                    // t = "CW";
+                break;
+            }
+#endif
             default:
                 t = gModulationStr[mod];
             break;

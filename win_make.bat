@@ -22,14 +22,14 @@
 ::
 :: Temporarily add the compiler and make program directories to the system PATH ..
 ::
-@set PATH="C:\Program Files (x86)\GNU Arm Embedded Toolchain\10 2021.10\bin";%PATH%
-@set PATH="C:\Program Files (x86)\GNU Arm Embedded Toolchain\10 2021.10\arm-none-eabi\bin";%PATH%
+@set PATH="C:\Program Files (x86)\Arm GNU Toolchain arm-none-eabi\14.2 rel1\bin";%PATH%
+@set PATH="C:\Program Files (x86)\Arm GNU Toolchain arm-none-eabi\14.2 rel1\arm-none-eabi\bin";%PATH%
 @set PATH="C:\Program Files (x86)\GnuWin32\bin\";%PATH%
 
 :: Do the compile
 ::
 make clean
-make
+make -s EDITION_STRING=W9LMP
 
 
 :: If you have python installed, you can create a 'packed' .bin from the compiled firmware.bin file.

@@ -79,6 +79,10 @@
     #include "screenshot.h"
 #endif
 
+#ifdef ENABLE_CW
+    #include "cw.h"
+#endif
+
 static bool flagSaveVfo;
 static bool flagSaveSettings;
 static bool flagSaveChannel;
@@ -473,10 +477,6 @@ Skip:
     }
 }
 
-static void HandleCWTransmit(void) {
-    
-}
-
 static void HandlePowerSave()
 {
     if (!gRxIdleMode) {
@@ -492,9 +492,6 @@ static void (*HandleFunction_fn_table[])(void) = {
     [FUNCTION_RECEIVE] = &HandleReceive,
     [FUNCTION_POWER_SAVE] = &HandlePowerSave,
     [FUNCTION_BAND_SCOPE] = &FUNCTION_NOP,
-#ifdef ENABLE_CW
-    [FUNCTION_CW_TRANSMIT] = &HandleCWTransmit,
-#endif
 };
 
 static_assert(ARRAY_SIZE(HandleFunction_fn_table) == FUNCTION_N_ELEM);
@@ -1047,6 +1044,9 @@ void APP_Update(void)
 #ifdef ENABLE_DTMF_CALLING
         && gDTMF_CallState == DTMF_CALL_STATE_NONE
 #endif
+#ifdef ENABLE_CW
+        && !gSoundPlaying
+#endif
     ) {
         DualwatchAlternate();    // toggle between the two VFO's
 
@@ -1421,6 +1421,12 @@ void APP_TimeSlice10ms(void)
     #ifdef ENABLE_FLASHLIGHT
         FlashlightTimeSlice();
     #endif
+#endif
+
+#ifdef ENABLE_CW
+    if (gCWState == CW_INPUT_ENABLED) {
+        CW_TimeSlice10ms();
+    }
 #endif
 
 #ifdef ENABLE_VOX
@@ -1877,6 +1883,42 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
     if (gEeprom.AUTO_KEYPAD_LOCK)
         gKeyLockCountdown = gEeprom.AUTO_KEYPAD_LOCK * 30;     // 15 seconds step
+
+#ifdef ENABLE_CW
+    if (gRxVfo->Modulation == MODULATION_CW) { 
+        if (gCWState == CW_INPUT_DISABLED) {
+            if (Key == KEY_PTT) {
+                if (bKeyPressed) {
+                    CW_EnableInput();
+                    gUpdateDisplay = true;
+                    gBeepToPlay = BEEP_880HZ_60MS_DOUBLE_BEEP;
+                }
+                goto Skip;
+            }
+        } else {
+            if (Key == KEY_EXIT) {
+                if (bKeyPressed) {
+                    CW_DisableInput();
+                    gUpdateDisplay = true;
+                    gBeepToPlay = BEEP_500HZ_60MS_DOUBLE_BEEP;
+                }
+                goto Skip;
+            }
+            if (Key == KEY_PTT) {
+                CW_Key_DAH(bKeyPressed);
+                BACKLIGHT_TurnOn();
+                gBeepToPlay = BEEP_NONE;
+                goto Skip;
+            }
+            if (Key == KEY_MENU) {
+                CW_Key_DIT(bKeyPressed);
+                BACKLIGHT_TurnOn();
+                gBeepToPlay = BEEP_NONE;
+                goto Skip;
+            }
+        }
+    }
+#endif
 
     if (!bKeyPressed) { // key released
         if (flagSaveVfo) {
