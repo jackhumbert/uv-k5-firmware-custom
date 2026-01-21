@@ -471,8 +471,11 @@ void UI_MAIN_TimeSlice500ms(void)
         UI_MAIN_PrintAGC(true);
         return;
 #endif
-
+#ifdef ENABLE_CW
+        if(FUNCTION_IsRx() && gEeprom.VfoInfo[gEeprom.RX_VFO].Modulation != MODULATION_CW) {
+#else
         if(FUNCTION_IsRx()) {
+#endif    
             DisplayRSSIBar(true);
         }
 #ifdef ENABLE_FEAT_F4HWN // Blink Green Led for white...
@@ -1409,7 +1412,11 @@ void UI_DisplayMain(void)
         const bool rx = FUNCTION_IsRx();
 
 #ifdef ENABLE_AUDIO_BAR
+#ifdef ENABLE_CW
+        if (gSetting_mic_bar && gCurrentFunction == FUNCTION_TRANSMIT && gEeprom.VfoInfo[gEeprom.RX_VFO].Modulation != MODULATION_CW) {
+#else
         if (gSetting_mic_bar && gCurrentFunction == FUNCTION_TRANSMIT) {
+#endif
             center_line = CENTER_LINE_AUDIO_BAR;
             UI_DisplayAudioBar();
         }
@@ -1527,6 +1534,26 @@ void UI_DisplayMain(void)
     //#ifdef ENABLE_FEAT_F4HWN_RESCUE_OPS
     //}
     //#endif
+#endif
+
+#ifdef ENABLE_CW
+    UI_PrintStringSmallNormal(gCWCharsSent, 0, 0, 3);
+    {
+        const char hollowBar[] = {  0b00000000 };
+        const char simpleBar[] = {  0b00111110 };
+        const char currentPos[] = { 0b01100011 };
+        uint8_t *p_line = gFrameBuffer[4];
+        // memcpy(p_line, &gCWDitsSent, 8);
+        for (uint8_t i = 0; i < 128; i++) {
+            if (i == gCWDitsSentCursor) {
+                memcpy(p_line + i, &currentPos, ARRAY_SIZE(currentPos));
+            } else if (gCWDitsSent[i / 64] & (1ULL << (i % 64))) {
+                memcpy(p_line + i, &simpleBar, ARRAY_SIZE(simpleBar));
+            } else {
+                memcpy(p_line + i, &hollowBar, ARRAY_SIZE(hollowBar));
+            }
+        }
+    }
 #endif
 
     ST7565_BlitFullScreen();

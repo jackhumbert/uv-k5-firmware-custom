@@ -35,4 +35,12 @@ void CW_Key_DIT(bool bKeyPressed);
 extern bool gSoundPlaying;
 extern CWState_t gCWState;
 
+// as big as one line with UI_PrintStringSmallNormal
+#define CHARS_SENT_SIZE 18
+
+extern char gCWCharsSent[CHARS_SENT_SIZE];
+// 3 to prevent bad mem access
+extern uint64_t gCWDitsSent[3];
+extern uint8_t gCWDitsSentCursor;
+
 #endif

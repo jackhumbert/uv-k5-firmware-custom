@@ -27,34 +27,83 @@
 #include "radio.h"
 #include "app/app.h"
 
-// uint32_t values[26] = {
-// 0b011101, // ".-",   // A
-// 0b0101010111, // "-...", // B
-// 0b010111010111, // "-.-.", // C
-// 0b01010111, // "-..",  // D
-// 0b01, // ".",    // E
-// 0b0101110101, // "..-.", // F
-// 0b0101110111, // "--.",  // G
-// 0b01010101, // "....", // H
-// 0b0101, // "..",   // I
-// 0b01110111011101, // ".---", // J
-// 0b0111010111, // "-.-",  // K
-// 0b0101011101, // ".-..", // L
-// 0b01110111, // "--",   // M
-// 0b010111, // "-.",   // N
-// 0b011101110111, // "---",  // O
-// 0b010111011101, // ".--.", // P
-// 0b01110101110111, // "--.-", // Q
-// 0b01011101, // ".-.",  // R
-// 0b010101, // "...",  // S
-// 0b0111, // "-",    // T
-// 0b01110101, // "..-",  // U
-// 0b0111010101, // "...-", // V
-// 0b0111011101, // ".--",  // W
-// 0b011101010111, // "-..-", // X
-// 0b01110111010111, // "-.--", // Y
-// 0b010101110111, // "--..", // Z
-// };
+uint32_t morse_values[36] = {
+0b01110111011101110111, // 0
+0b010111011101110111, // 1
+0b0101011101110111, // 2
+0b01010101110111, // 3
+0b010101010111, // 4
+0b0101010101, // 5
+0b011101010101, // 6
+0b01110111010101, // 7
+0b0111011101110101, // 8
+0b011101110111011101, // 9
+0b011101, // ".-",   // A
+0b0101010111, // "-...", // B
+0b010111010111, // "-.-.", // C
+0b01010111, // "-..",  // D
+0b01, // ".",    // E
+0b0101110101, // "..-.", // F
+0b0101110111, // "--.",  // G
+0b01010101, // "....", // H
+0b0101, // "..",   // I
+0b01110111011101, // ".---", // J
+0b0111010111, // "-.-",  // K
+0b0101011101, // ".-..", // L
+0b01110111, // "--",   // M
+0b010111, // "-.",   // N
+0b011101110111, // "---",  // O
+0b010111011101, // ".--.", // P
+0b01110101110111, // "--.-", // Q
+0b01011101, // ".-.",  // R
+0b010101, // "...",  // S
+0b0111, // "-",    // T
+0b01110101, // "..-",  // U
+0b0111010101, // "...-", // V
+0b0111011101, // ".--",  // W
+0b011101010111, // "-..-", // X
+0b01110111010111, // "-.--", // Y
+0b010101110111, // "--..", // Z
+};
+
+char char_values[36] = {
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'F',
+    'G',
+    'H',
+    'I',
+    'J',
+    'K',
+    'L',
+    'M',
+    'N',
+    'O',
+    'P',
+    'Q',
+    'R',
+    'S',
+    'T',
+    'U',
+    'V',
+    'W',
+    'X',
+    'Y',
+    'Z',
+};
 
 // uint32_t inv_values[26] = {
 // 1, // ".",    // E
@@ -190,7 +239,6 @@ static void CW_EnablePulse() {
     // BK4819_WriteRegister(BK4819_REG_43, (0b000 << 12) | (0b000 << 9) | (0b001 << 6) | (0b01 << 4) | (0b0 << 2));
     
     BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);
-    AUDIO_AudioPathOn();
 
     BK4819_ExitTxMute();
 
@@ -199,6 +247,7 @@ static void CW_EnablePulse() {
 
 static void CW_StartPulse() {
     // BK4819_ExitTxMute();
+    AUDIO_AudioPathOn();
     BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, true);
     
     // BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);
@@ -214,8 +263,8 @@ static void CW_StartPulse() {
         BK4819_REG_30_ENABLE_AF_DAC    | // enable beep
         BK4819_REG_30_ENABLE_DISC_MODE |
         BK4819_REG_30_ENABLE_PLL_VCO   |
-        BK4819_REG_30_ENABLE_PA_GAIN   | // enable PA
-        // BK4819_REG_30_DISABLE_PA_GAIN   |
+        // BK4819_REG_30_ENABLE_PA_GAIN   | // enable PA
+        BK4819_REG_30_DISABLE_PA_GAIN   |
         BK4819_REG_30_DISABLE_MIC_ADC  |
         BK4819_REG_30_ENABLE_TX_DSP    |
         // BK4819_REG_30_DISABLE_TX_DSP    | // disables TX
@@ -225,6 +274,7 @@ static void CW_StartPulse() {
 
 static void CW_EndPulse() {
     // BK4819_EnterTxMute();
+    AUDIO_AudioPathOff();
     BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, false);
 
     BK4819_WriteRegister(BK4819_REG_30,
@@ -247,20 +297,27 @@ static void CW_EndPulse() {
 }
 
 static void CW_DisablePulse() {
-    gSoundPlaying = false;
     
     // BK4819_EnterTxMute();
     AUDIO_AudioPathOff();
 
-    BK4819_WriteRegister(BK4819_REG_30, 0xC1FE);
-    BK4819_SetupPowerAmplifier(0, 0);
+    // BK4819_SetupPowerAmplifier(0, 0);
+    // SYSTEM_DelayMs(8);
+
+    // BK4819_WriteRegister(BK4819_REG_30, 0xC1FE);
 
     BK4819_WriteRegister(BK4819_REG_70, 0);
 
     // APP_EndTransmission();
-    // FUNCTION_Select(FUNCTION_FOREGROUND);
-    RADIO_SetupRegisters(true);
-    gFlagEndTransmission = false;
+    RADIO_SetupRegisters(false);
+    gFlagEndTransmission = true;
+
+    if (gMonitor) {
+         //turn the monitor back on
+        gFlagReconfigureVfos = true;
+    }
+    
+    FUNCTION_Select(FUNCTION_FOREGROUND);
 
     // SYSTEM_DelayMs(5);
     // BK4819_TurnsOffTones_TurnsOnRX();
@@ -273,10 +330,11 @@ static void CW_DisablePulse() {
     // if (gCurrentFunction == FUNCTION_POWER_SAVE && gRxIdleMode)
     //     BK4819_Sleep();
 
-    #ifdef ENABLE_VOX
-        gVoxResumeCountdown = 80;
-    #endif
+    // #ifdef ENABLE_VOX
+    //     gVoxResumeCountdown = 80;
+    // #endif
     
+    gSoundPlaying = false;
 }
 
 static const uint16_t CW_wpm = 15;
@@ -300,6 +358,83 @@ enum {
     CW_STARTING_DAH,
     CW_ENDING_DAH
 } cw_state = CW_CONSUME_NEXT;
+
+char gCWCharsSent[CHARS_SENT_SIZE] = {0};
+static uint8_t charCursor = 0;
+
+static uint32_t ditsSent = 0;
+static uint8_t ditCursor = 0;
+
+uint64_t gCWDitsSent[3] = {0};
+uint8_t gCWDitsSentCursor = 0;
+
+void CW_ResetTX() {
+    ditsSent = 0;
+    ditCursor = 0;
+}
+
+void CW_AddDah() {
+    ditsSent |= (0b111 << ditCursor);
+    ditCursor += 4;
+
+    gCWDitsSent[gCWDitsSentCursor / 64] &= ~(0b1111ULL << (gCWDitsSentCursor % 64));
+    gCWDitsSent[gCWDitsSentCursor / 64] |= (0b111ULL << (gCWDitsSentCursor % 64));
+    gCWDitsSentCursor = (gCWDitsSentCursor + 4) % 128;
+    gUpdateDisplay  = true;
+}
+
+void CW_AddDit() {
+    ditsSent |= (0b1 << ditCursor);
+    ditCursor += 2;
+
+    gCWDitsSent[gCWDitsSentCursor / 64] &= ~(0b11ULL << (gCWDitsSentCursor % 64));
+    gCWDitsSent[gCWDitsSentCursor / 64] |= (0b1ULL << (gCWDitsSentCursor % 64));
+    gCWDitsSentCursor = (gCWDitsSentCursor + 2) % 128;
+    gUpdateDisplay  = true;
+}
+
+void CW_AddPause() {
+    if (ditsSent && ditCursor < 31)
+        ditCursor += 1;
+
+    gCWDitsSent[gCWDitsSentCursor / 64] &= ~(0b1ULL << (gCWDitsSentCursor % 64));
+    gCWDitsSentCursor = (gCWDitsSentCursor + 1) % 128;
+    gUpdateDisplay  = true;
+}
+
+void CW_UpdateCharsSent() {
+    int32_t index = -1;
+    for (uint8_t i = 0; i < 36; i++) {
+        if (morse_values[i] == ditsSent) {
+            index = i;
+            break;
+        }
+    }
+    if (index != -1) {
+        gCWCharsSent[charCursor] = char_values[index];
+        gUpdateDisplay  = true;
+    } else if (ditsSent) {
+        gCWCharsSent[charCursor] = '~';
+    }
+}
+
+void CW_ConfirmChar() {
+    if (gCWCharsSent[charCursor] != 0) {
+        if (charCursor < CHARS_SENT_SIZE) {
+            charCursor++;
+        } else {
+            memset(gCWCharsSent, 0, CHARS_SENT_SIZE);
+            gUpdateDisplay  = true;
+            charCursor = 0;
+        }
+        CW_ResetTX();
+    }
+}
+
+void CW_AddSpace() {
+    gCWCharsSent[charCursor] = ' ';
+    CW_ConfirmChar();
+}
 
 void CW_TimeSlice10ms() {
     gCWCounter++;
@@ -362,10 +497,16 @@ void CW_TimeSlice10ms() {
                         // next_tx = 0;
                         goto StartingDah;
                     } else {
-                        if (empty_queue > 5)
-                            cw_state = CW_QUEUE_EMPTY;
-                        else
+                        CW_AddPause();
+                        if (empty_queue < 8)
                             empty_queue++;
+                        if (empty_queue > 3) {
+                            CW_ConfirmChar();
+                        }
+                        if (empty_queue == 7) {
+                            CW_AddSpace();
+                            cw_state = CW_QUEUE_EMPTY;
+                        }
                         last_tx = next_tx;
                         next_tx = 0;
                     }
@@ -378,6 +519,7 @@ StartingDit:
                     CW_StartPulse();
                     pulse_length = 1;
                     cw_state = CW_ENDING_DIT;
+                    CW_AddDit();
                     // last_tx = next_tx;
                     // next_tx = 0;
                     break;
@@ -395,6 +537,7 @@ StartingDah:
                     CW_StartPulse();
                     pulse_length = 3;
                     cw_state = CW_ENDING_DAH;
+                    CW_AddDah();
                     // last_tx = next_tx;
                     // next_tx = 0;
                     break;
@@ -410,6 +553,7 @@ StartingDah:
             } 
         }
     }
+    CW_UpdateCharsSent();
     // if (bDitPressed || bDahPressed) {
     //     if (!gSoundPlaying) {
     //         if (gCurrentFunction == FUNCTION_RECEIVE)

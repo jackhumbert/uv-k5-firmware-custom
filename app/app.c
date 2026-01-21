@@ -1387,7 +1387,11 @@ void APP_TimeSlice10ms(void)
     if (gCurrentFunction == FUNCTION_TRANSMIT)
     {   // transmitting
 #ifdef ENABLE_AUDIO_BAR
+#ifdef ENABLE_CW
+        if (gSetting_mic_bar && (gFlashLightBlinkCounter % (150 / 10)) == 0 && gRxVfo->Modulation == MODULATION_CW)
+#else
         if (gSetting_mic_bar && (gFlashLightBlinkCounter % (150 / 10)) == 0) // once every 150ms
+#endif
             UI_DisplayAudioBar();
 #endif
     }
