@@ -147,18 +147,18 @@ char gCW_Prosigns[11][2] = {
 // };
 
 
-CWState_t gCWState = CW_INPUT_DISABLED;
+CWState_t gCW_State = CW_INPUT_DISABLED;
 bool gSoundPlaying = false;
 
 bool ogEnableSpeaker = false;
 void CW_EnableInput() {
-    gCWState = CW_INPUT_ENABLED;
+    gCW_State = CW_INPUT_ENABLED;
     ogEnableSpeaker = gEnableSpeaker;
     gEnableSpeaker = true;
 }
 
 void CW_DisableInput() {
-    gCWState = CW_INPUT_DISABLED;
+    gCW_State = CW_INPUT_DISABLED;
     gEnableSpeaker = ogEnableSpeaker;
 }
 
@@ -372,14 +372,14 @@ enum {
     CW_ENDING_DAH
 } cw_state = CW_CONSUME_NEXT;
 
-uint8_t gCWCharsSent[CHARS_SENT_SIZE] = {0};
+uint8_t gCW_CharsSent[CHARS_SENT_SIZE] = {0};
 uint8_t gCW_CharCursor = 0;
 
 static uint32_t ditsSent = 0;
 static uint8_t ditCursor = 0;
 
-uint64_t gCWDitsSent[3] = {0};
-uint8_t gCWDitsSentCursor = 0;
+uint64_t gCW_DitsSent[3] = {0};
+uint8_t gCW_DitsSentCursor = 0;
 
 void CW_ResetTX() {
     ditsSent = 0;
@@ -390,9 +390,9 @@ void CW_AddDah() {
     ditsSent |= (0b111 << ditCursor);
     ditCursor += 4;
 
-    gCWDitsSent[gCWDitsSentCursor / 64] &= ~(0b1111ULL << (gCWDitsSentCursor % 64));
-    gCWDitsSent[gCWDitsSentCursor / 64] |= (0b111ULL << (gCWDitsSentCursor % 64));
-    gCWDitsSentCursor = (gCWDitsSentCursor + 4) % 128;
+    gCW_DitsSent[gCW_DitsSentCursor / 64] &= ~(0b1111ULL << (gCW_DitsSentCursor % 64));
+    gCW_DitsSent[gCW_DitsSentCursor / 64] |= (0b111ULL << (gCW_DitsSentCursor % 64));
+    gCW_DitsSentCursor = (gCW_DitsSentCursor + 4) % 128;
     gUpdateDisplay  = true;
 }
 
@@ -400,9 +400,9 @@ void CW_AddDit() {
     ditsSent |= (0b1 << ditCursor);
     ditCursor += 2;
 
-    gCWDitsSent[gCWDitsSentCursor / 64] &= ~(0b11ULL << (gCWDitsSentCursor % 64));
-    gCWDitsSent[gCWDitsSentCursor / 64] |= (0b1ULL << (gCWDitsSentCursor % 64));
-    gCWDitsSentCursor = (gCWDitsSentCursor + 2) % 128;
+    gCW_DitsSent[gCW_DitsSentCursor / 64] &= ~(0b11ULL << (gCW_DitsSentCursor % 64));
+    gCW_DitsSent[gCW_DitsSentCursor / 64] |= (0b1ULL << (gCW_DitsSentCursor % 64));
+    gCW_DitsSentCursor = (gCW_DitsSentCursor + 2) % 128;
     gUpdateDisplay  = true;
 }
 
@@ -410,20 +410,23 @@ void CW_AddPause() {
     if (ditsSent && ditCursor < 31)
         ditCursor += 1;
 
-    gCWDitsSent[gCWDitsSentCursor / 64] &= ~(0b1ULL << (gCWDitsSentCursor % 64));
-    gCWDitsSentCursor = (gCWDitsSentCursor + 1) % 128;
+    gCW_DitsSent[gCW_DitsSentCursor / 64] &= ~(0b1ULL << (gCW_DitsSentCursor % 64));
+    gCW_DitsSentCursor = (gCW_DitsSentCursor + 1) % 128;
     gUpdateDisplay  = true;
 }
 
 void CW_ConfirmChar() {
-    if (gCWCharsSent[gCW_CharCursor] != 0) {
-        if (gCW_CharCursor < CHARS_SENT_SIZE) {
-            gCW_CharCursor++;
-        } else {
-            memset(gCWCharsSent, 0, CHARS_SENT_SIZE);
-            gUpdateDisplay  = true;
-            gCW_CharCursor = 0;
-        }
+    if (gCW_CharsSent[gCW_CharCursor] != 0) {
+        // if (gCW_CharCursor < CHARS_SENT_SIZE) {
+        //     gCW_CharCursor++;
+        // } else {
+        //     memset(gCW_CharsSent, 0, CHARS_SENT_SIZE);
+        //     gUpdateDisplay  = true;
+        //     gCW_CharCursor = 0;
+        // }
+        gCW_CharCursor = (gCW_CharCursor + 1) % CHARS_SENT_SIZE;
+        gCW_CharsSent[gCW_CharCursor] = 0;
+        gUpdateDisplay = true;
         CW_ResetTX();
     }
 }
@@ -437,26 +440,26 @@ void CW_UpdateCharsSent() {
         }
     }
     // if (index != 0xFFFFFFFF && index < ARRAY_SIZE(gCW_Values)) {
-    //     gCWCharsSent[gCW_CharCursor] = gCW_Values[index];
+    //     gCW_CharsSent[gCW_CharCursor] = gCW_Values[index];
     //     gUpdateDisplay  = true;
     // } else if (index != 0xFFFFFFFF) {
-    //     gCWCharsSent[gCW_CharCursor] = 31;
+    //     gCW_CharsSent[gCW_CharCursor] = 31;
     //     CW_ConfirmChar();
-    //     gCWCharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][0];
+    //     gCW_CharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][0];
     //     CW_ConfirmChar();
-    //     gCWCharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][1];
+    //     gCW_CharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][1];
     //     CW_ConfirmChar();
     if (index != 0xFFFFFFFF) {
-        gCWCharsSent[gCW_CharCursor] = index;
+        gCW_CharsSent[gCW_CharCursor] = index;
         gUpdateDisplay  = true;
     } else if (ditsSent) {
-        gCWCharsSent[gCW_CharCursor] = ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns);
+        gCW_CharsSent[gCW_CharCursor] = ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns);
         gUpdateDisplay  = true;
     }
 }
 
 void CW_AddSpace() {
-    gCWCharsSent[gCW_CharCursor] = CW_SYMBOL_SPACE;
+    gCW_CharsSent[gCW_CharCursor] = CW_SYMBOL_SPACE;
     gUpdateDisplay  = true;
     CW_ConfirmChar();
 }

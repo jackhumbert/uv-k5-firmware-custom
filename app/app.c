@@ -1428,7 +1428,7 @@ void APP_TimeSlice10ms(void)
 #endif
 
 #ifdef ENABLE_CW
-    if (gCWState == CW_INPUT_ENABLED) {
+    if (gCW_State == CW_INPUT_ENABLED) {
         CW_TimeSlice10ms();
     }
 #endif
@@ -1890,7 +1890,7 @@ static void ProcessKey(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld)
 
 #ifdef ENABLE_CW
     if (gRxVfo->Modulation == MODULATION_CW) { 
-        if (gCWState == CW_INPUT_DISABLED) {
+        if (gCW_State == CW_INPUT_DISABLED) {
             if (Key == KEY_PTT) {
                 if (bKeyPressed) {
                     CW_EnableInput();

@@ -1134,7 +1134,7 @@ void UI_DisplayMain(void)
 #ifdef ENABLE_CW
             case MODULATION_CW: {
                     // s = "";
-                    if (gCWState == CW_INPUT_ENABLED) {
+                    if (gCW_State == CW_INPUT_ENABLED) {
                         t = "CWT";
                         // s = "INPUT";
                     } else {
@@ -1545,15 +1545,18 @@ void UI_DisplayMain(void)
     uint32_t offset = 1;
     // UI_PrintStringSmallNormal(gCWCharsSent, i, 0, 3);
     for (uint8_t i = 0; i < CHARS_SENT_SIZE; i++) {
-        if (!gCWCharsSent[i])
-            continue;
         uint8_t * buffer = gFrameBuffer[3];
-        char c = 0;
+        uint32_t start = offset;
 
-        if (gCWCharsSent[i] < ARRAY_SIZE(gCW_Values)) {
+        char c = ' ';
+
+        if (!gCW_CharsSent[i])
+            goto RegularChar;
+
+        if (gCW_CharsSent[i] < ARRAY_SIZE(gCW_Values)) {
             // normal character
 
-            c = gCW_Values[gCWCharsSent[i]];
+            c = gCW_Values[gCW_CharsSent[i]];
 RegularChar:    
             const uint8_t char_width = ARRAY_SIZE(gFontSmall[0]);
             const unsigned int char_spacing = char_width + 1;
@@ -1565,27 +1568,35 @@ RegularChar:
             } else if (c == ' ') {
                 offset += char_spacing + 1;
             }
-        } else if (gCWCharsSent[i] < ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns)) {
+        } else if (gCW_CharsSent[i] < ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns)) {
             // prosign with line above two chars
-            const char * cs = gCW_Prosigns[gCWCharsSent[i] - ARRAY_SIZE(gCW_Values)];
-
-            uint32_t start = offset;
+            const char * cs = gCW_Prosigns[gCW_CharsSent[i] - ARRAY_SIZE(gCW_Values)];
+            offset -= 1;
+            start -= 1;
             for (uint8_t j = 0; j < 2; j++) {
                 const unsigned int index = cs[j] - ' ';
                 memcpy(buffer + offset, (uint8_t *)gFont3x5 + index * 3, 3);
                 offset += 3 + 1;
             }
-            for (uint8_t j = 0; j < 3 * 2 + 2; j++) {
+            for (uint8_t j = 0; j < 3 * 2 + 1; j++) {
                 const uint8_t line = (*(buffer + start + j) << 2) | 0b00000001;
                 memcpy(buffer + start + j, &line, 1);
             }
-            offset += 2;
-        } else if (gCWCharsSent[i] == CW_SYMBOL_ERROR){
+            offset += 1;
+        } else if (gCW_CharsSent[i] == CW_SYMBOL_ERROR){
             c = '~';
             goto RegularChar;
-        } else if (gCWCharsSent[i] == CW_SYMBOL_SPACE){
+        } else if (gCW_CharsSent[i] == CW_SYMBOL_SPACE){
             c = ' ';
             goto RegularChar;
+        }
+
+        // invert current char
+        if (i == gCW_CharCursor) {
+            for (uint8_t j = start - 1; j < offset - 1; j++) {
+                const uint8_t line = *(buffer + j) ^ 0b11111111;
+                memcpy(buffer + j, &line, 1);
+            }
         }
     }
     {
@@ -1595,9 +1606,9 @@ RegularChar:
         uint8_t *p_line = gFrameBuffer[4];
         // memcpy(p_line, &gCWDitsSent, 8);
         for (uint8_t i = 0; i < 128; i++) {
-            if (i == gCWDitsSentCursor) {
+            if (i == gCW_DitsSentCursor) {
                 memcpy(p_line + i, &currentPos, ARRAY_SIZE(currentPos));
-            } else if (gCWDitsSent[i / 64] & (1ULL << (i % 64))) {
+            } else if (gCW_DitsSent[i / 64] & (1ULL << (i % 64))) {
                 memcpy(p_line + i, &simpleBar, ARRAY_SIZE(simpleBar));
             } else {
                 memcpy(p_line + i, &hollowBar, ARRAY_SIZE(hollowBar));
