@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "misc.h"
 
 typedef enum {
     CW_INPUT_DISABLED,
@@ -38,9 +39,20 @@ extern CWState_t gCWState;
 // as big as one line with UI_PrintStringSmallNormal
 #define CHARS_SENT_SIZE 18
 
-extern char gCWCharsSent[CHARS_SENT_SIZE];
+extern uint8_t gCWCharsSent[CHARS_SENT_SIZE];
+extern uint8_t gCW_CharCursor;
+
 // 3 to prevent bad mem access
 extern uint64_t gCWDitsSent[3];
 extern uint8_t gCWDitsSentCursor;
+
+extern char gCW_Values[53];
+extern char gCW_Prosigns[11][2];
+
+enum CW_SYMBOLS {
+    CW_SYMBOL_ERROR = ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns),
+    CW_SYMBOL_SPACE
+};
+
 
 #endif

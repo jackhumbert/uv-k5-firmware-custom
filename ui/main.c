@@ -37,6 +37,7 @@
 #include "ui/main.h"
 #include "ui/ui.h"
 #include "audio.h"
+#include "font.h"
 
 #ifdef ENABLE_FEAT_F4HWN
     #include "driver/system.h"
@@ -1541,7 +1542,52 @@ void UI_DisplayMain(void)
 #endif
 
 #ifdef ENABLE_CW
-    UI_PrintStringSmallNormal(gCWCharsSent, 0, 0, 3);
+    uint32_t offset = 1;
+    // UI_PrintStringSmallNormal(gCWCharsSent, i, 0, 3);
+    for (uint8_t i = 0; i < CHARS_SENT_SIZE; i++) {
+        if (!gCWCharsSent[i])
+            continue;
+        uint8_t * buffer = gFrameBuffer[3];
+        char c = 0;
+
+        if (gCWCharsSent[i] < ARRAY_SIZE(gCW_Values)) {
+            // normal character
+
+            c = gCW_Values[gCWCharsSent[i]];
+RegularChar:    
+            const uint8_t char_width = ARRAY_SIZE(gFontSmall[0]);
+            const unsigned int char_spacing = char_width + 1;
+            
+            if (c > ' ' && c < 127) {
+                const unsigned int index = c - ' ' - 1;
+                memcpy(buffer + offset, (uint8_t *)gFontSmall + index * char_width, char_width);
+                offset += char_spacing + 1;
+            } else if (c == ' ') {
+                offset += char_spacing + 1;
+            }
+        } else if (gCWCharsSent[i] < ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns)) {
+            // prosign with line above two chars
+            const char * cs = gCW_Prosigns[gCWCharsSent[i] - ARRAY_SIZE(gCW_Values)];
+
+            uint32_t start = offset;
+            for (uint8_t j = 0; j < 2; j++) {
+                const unsigned int index = cs[j] - ' ';
+                memcpy(buffer + offset, (uint8_t *)gFont3x5 + index * 3, 3);
+                offset += 3 + 1;
+            }
+            for (uint8_t j = 0; j < 3 * 2 + 2; j++) {
+                const uint8_t line = (*(buffer + start + j) << 2) | 0b00000001;
+                memcpy(buffer + start + j, &line, 1);
+            }
+            offset += 2;
+        } else if (gCWCharsSent[i] == CW_SYMBOL_ERROR){
+            c = '~';
+            goto RegularChar;
+        } else if (gCWCharsSent[i] == CW_SYMBOL_SPACE){
+            c = ' ';
+            goto RegularChar;
+        }
+    }
     {
         const char hollowBar[] = {  0b00000000 };
         const char simpleBar[] = {  0b00111110 };

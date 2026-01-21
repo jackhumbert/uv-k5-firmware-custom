@@ -75,57 +75,36 @@ uint32_t morse_values[] = {
     0b0101110111010111, // (
     0b01110101110111010111, // )
     0b010101011101110111, // :
-    0b01110101010111, // =
+    // 0b01110101010111, // =
     0b01011101011101, // +
     0b0111010101010111, // -
     0b0101110101011101, // ?
+    0b0101110101011101, // "
     0b010111010111011101, // @
     
     0b01110111010111010111, // !
-    0b010101011101, // &
+    // 0b010101011101, // &
     0b010111010111010111, // ;
     0b011101011101110101, // _
     0b011101010111010101, // $
+
+    0b011101011101, // AA
+    0b01011101011101, // AR
+    0b010101011101, // AS
+    0b01110101010111, // BT
+    0b0111010111010111, // CT
+    0b0101010101010101, // HH
+    0b0101110111010111, // KN
+    0b0111010111010111, // KT
+    0b01011101011101, // RN
+    0b0111010111010101, // SK
+    0b010111010101, // VE
 };
 
-char char_values[] = {
-    '0',
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7',
-    '8',
-    '9',
-    
-    'A',
-    'B',
-    'C',
-    'D',
-    'E',
-    'F',
-    'G',
-    'H',
-    'I',
-    'J',
-    'K',
-    'L',
-    'M',
-    'N',
-    'O',
-    'P',
-    'Q',
-    'R',
-    'S',
-    'T',
-    'U',
-    'V',
-    'W',
-    'X',
-    'Y',
-    'Z',
+char gCW_Values[53] = {
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
 
     '.',
     ',',
@@ -135,18 +114,38 @@ char char_values[] = {
     '(',
     ')',
     ':',
-    '=',
+    // '=', // show BT instead
     '+',
     '-',
     '?',
+    '"',
     '@',
 
     '!',
-    '&',
+    // '&', // show AS instead
     ';',
     '_',
     '$',
 };
+
+char gCW_Prosigns[11][2] = {
+    "AA",
+    "AR",
+    "AS",
+    "BT",
+    "CT",
+    "HH",
+    "KN",
+    "KT",
+    "RN",
+    "SK",
+    "VE",
+};
+
+// char text_signs[][4] = {
+//     "[?]"
+// };
+
 
 CWState_t gCWState = CW_INPUT_DISABLED;
 bool gSoundPlaying = false;
@@ -373,8 +372,8 @@ enum {
     CW_ENDING_DAH
 } cw_state = CW_CONSUME_NEXT;
 
-char gCWCharsSent[CHARS_SENT_SIZE] = {0};
-static uint8_t charCursor = 0;
+uint8_t gCWCharsSent[CHARS_SENT_SIZE] = {0};
+uint8_t gCW_CharCursor = 0;
 
 static uint32_t ditsSent = 0;
 static uint8_t ditCursor = 0;
@@ -416,37 +415,49 @@ void CW_AddPause() {
     gUpdateDisplay  = true;
 }
 
+void CW_ConfirmChar() {
+    if (gCWCharsSent[gCW_CharCursor] != 0) {
+        if (gCW_CharCursor < CHARS_SENT_SIZE) {
+            gCW_CharCursor++;
+        } else {
+            memset(gCWCharsSent, 0, CHARS_SENT_SIZE);
+            gUpdateDisplay  = true;
+            gCW_CharCursor = 0;
+        }
+        CW_ResetTX();
+    }
+}
+
 void CW_UpdateCharsSent() {
-    int32_t index = -1;
+    uint32_t index = 0xFFFFFFFF;
     for (uint8_t i = 0; i < ARRAY_SIZE(morse_values); i++) {
         if (morse_values[i] == ditsSent) {
             index = i;
             break;
         }
     }
-    if (index != -1) {
-        gCWCharsSent[charCursor] = char_values[index];
+    // if (index != 0xFFFFFFFF && index < ARRAY_SIZE(gCW_Values)) {
+    //     gCWCharsSent[gCW_CharCursor] = gCW_Values[index];
+    //     gUpdateDisplay  = true;
+    // } else if (index != 0xFFFFFFFF) {
+    //     gCWCharsSent[gCW_CharCursor] = 31;
+    //     CW_ConfirmChar();
+    //     gCWCharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][0];
+    //     CW_ConfirmChar();
+    //     gCWCharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][1];
+    //     CW_ConfirmChar();
+    if (index != 0xFFFFFFFF) {
+        gCWCharsSent[gCW_CharCursor] = index;
         gUpdateDisplay  = true;
     } else if (ditsSent) {
-        gCWCharsSent[charCursor] = '~';
-    }
-}
-
-void CW_ConfirmChar() {
-    if (gCWCharsSent[charCursor] != 0) {
-        if (charCursor < CHARS_SENT_SIZE) {
-            charCursor++;
-        } else {
-            memset(gCWCharsSent, 0, CHARS_SENT_SIZE);
-            gUpdateDisplay  = true;
-            charCursor = 0;
-        }
-        CW_ResetTX();
+        gCWCharsSent[gCW_CharCursor] = ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns);
+        gUpdateDisplay  = true;
     }
 }
 
 void CW_AddSpace() {
-    gCWCharsSent[charCursor] = ' ';
+    gCWCharsSent[gCW_CharCursor] = CW_SYMBOL_SPACE;
+    gUpdateDisplay  = true;
     CW_ConfirmChar();
 }
 
