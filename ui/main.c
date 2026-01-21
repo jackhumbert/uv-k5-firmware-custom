@@ -1441,7 +1441,11 @@ void UI_DisplayMain(void)
 #endif
 
 #ifdef ENABLE_RSSI_BAR
-        if (rx) {
+#ifdef ENABLE_CW
+        if(rx && gEeprom.VfoInfo[gEeprom.RX_VFO].Modulation != MODULATION_CW) {
+#else
+        if(rx) {
+#endif    
             center_line = CENTER_LINE_RSSI;
             DisplayRSSIBar(false);
         }
