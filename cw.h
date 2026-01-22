@@ -27,6 +27,11 @@ typedef enum {
     CW_INPUT_ENABLED
 } CWState_t;
 
+typedef enum {
+    CW_TX_DISABLED,
+    CW_TX_ENABLED
+} CWTxState_t;
+
 void CW_EnableInput();
 void CW_DisableInput();
 void CW_TimeSlice10ms();
@@ -35,6 +40,7 @@ void CW_Key_DIT(bool bKeyPressed);
 
 extern bool gSoundPlaying;
 extern CWState_t gCW_State;
+extern CWTxState_t gCW_TxState;
 
 // as big as one line with UI_PrintStringSmallNormal
 #define CHARS_SENT_SIZE 16

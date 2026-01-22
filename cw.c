@@ -146,8 +146,8 @@ char gCW_Prosigns[11][2] = {
 //     "[?]"
 // };
 
-
 CWState_t gCW_State = CW_INPUT_DISABLED;
+CWTxState_t gCW_TxState = CW_TX_ENABLED;
 bool gSoundPlaying = false;
 
 bool ogEnableSpeaker = false;
@@ -184,10 +184,11 @@ static void CW_EnablePulse() {
 
     // BK4819_DisableDTMF();
 
-    // RADIO_SetTxParameters();
+    RADIO_SetTxParameters();
 
     // LogUart("Start BEEP\n");
     AUDIO_AudioPathOff();
+    // AUDIO_AudioPathOn();
 
     // if (gCurrentFunction == FUNCTION_POWER_SAVE && gRxIdleMode)
     //     BK4819_RX_TurnOn();
@@ -212,14 +213,16 @@ static void CW_EnablePulse() {
 
     // SYSTEM_DelayMs(2);
 
-    RADIO_PrepareTX();
+    // this does a lot of other stuff we don't need
+    // could be triggered by gFlagPrepareTX too
+    // RADIO_PrepareTX();
+        // RADIO_SelectCurrentVfo();
 
     BK4819_EnterTxMute();
-    // gets rid of harmonics on TX
-    BK4819_WriteRegister(BK4819_REG_47, (6u << 12) | (BK4819_AF_BEEP << 8) | (1u << 6) | 1);
 
     // BK4819_SetAF(BK4819_AF_BEEP);
-    // BK4819_SetAF(BK4819_AF_AM);
+    // gets rid of tone/harmonics on TX
+    BK4819_WriteRegister(BK4819_REG_47, (6u << 12) | (BK4819_AF_BEEP << 8) | (1u << 6) | 1);
 
     // BK4819_WriteRegister(BK4819_REG_70, BK4819_REG_70_ENABLE_TONE1 | (CW_TONE_TUNING_GAIN << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
     BK4819_WriteRegister(BK4819_REG_70, BK4819_REG_70_ENABLE_TONE1 | (0 << BK4819_REG_70_SHIFT_TONE1_TUNING_GAIN));
@@ -251,7 +254,8 @@ static void CW_EnablePulse() {
     // might only affect RX
     // BK4819_WriteRegister(BK4819_REG_43, (0b000 << 12) | (0b000 << 9) | (0b001 << 6) | (0b01 << 4) | (0b0 << 2));
     
-    BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);
+    if (gCW_TxState == CW_TX_ENABLED)
+        BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);
 
     BK4819_ExitTxMute();
 
@@ -261,7 +265,10 @@ static void CW_EnablePulse() {
 static void CW_StartPulse() {
     // BK4819_ExitTxMute();
     AUDIO_AudioPathOn();
-    BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, true);
+    if (gCW_TxState == CW_TX_ENABLED)
+        BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, true);
+    else
+        BK4819_ToggleGpioOut(BK4819_GPIO5_PIN1_RED, false);
     
     // BK4819_SetupPowerAmplifier(gCurrentVfo->TXP_CalculatedSetting, gCurrentVfo->pTX->Frequency);
 
@@ -276,7 +283,7 @@ static void CW_StartPulse() {
         BK4819_REG_30_ENABLE_AF_DAC    | // enable beep
         BK4819_REG_30_ENABLE_DISC_MODE |
         BK4819_REG_30_ENABLE_PLL_VCO   |
-        BK4819_REG_30_ENABLE_PA_GAIN   | // enable PA
+        ((gCW_TxState == CW_TX_ENABLED) ? BK4819_REG_30_ENABLE_PA_GAIN : BK4819_REG_30_DISABLE_PA_GAIN) | // enable PA
         // BK4819_REG_30_DISABLE_PA_GAIN   |
         BK4819_REG_30_DISABLE_MIC_ADC  |
         BK4819_REG_30_ENABLE_TX_DSP    |
@@ -373,10 +380,10 @@ enum {
     CW_ENDING_DAH
 } cw_state = CW_CONSUME_NEXT;
 
-uint8_t gCW_CharsTx[CHARS_SENT_SIZE] = {0};
+uint8_t gCW_CharsTx[CHARS_SENT_SIZE] = { CW_SYMBOL_SPACE };
 uint8_t gCW_CharsTxCursor = 0;
 
-uint8_t gCW_CharsRx[CHARS_SENT_SIZE] = {0};
+uint8_t gCW_CharsRx[CHARS_SENT_SIZE] = { CW_SYMBOL_SPACE };
 uint8_t gCW_CharsRxCursor = 0;
 
 static uint32_t ditsTx = 0;
@@ -431,7 +438,7 @@ void CW_AddPause() {
 }
 
 void CW_ConfirmTxChar() {
-    if (gCW_CharsTx[gCW_CharsTxCursor] != 0) {
+    // if (gCW_CharsTx[gCW_CharsTxCursor] != CW_SYMBOL_SPACE) {
         // if (gCW_CharsTxCursor < CHARS_SENT_SIZE) {
         //     gCW_CharsTxCursor++;
         // } else {
@@ -440,19 +447,19 @@ void CW_ConfirmTxChar() {
         //     gCW_CharsTxCursor = 0;
         // }
         gCW_CharsTxCursor = (gCW_CharsTxCursor + 1) % CHARS_SENT_SIZE;
-        gCW_CharsTx[gCW_CharsTxCursor] = 0;
+        gCW_CharsTx[gCW_CharsTxCursor] = CW_SYMBOL_SPACE;
         gUpdateDisplay = true;
         CW_ResetTx();
-    }
+    // }
 }
 
 void CW_ConfirmRxChar() {
-    if (gCW_CharsRx[gCW_CharsRxCursor] != 0) {
+    // if (gCW_CharsRx[gCW_CharsRxCursor] != CW_SYMBOL_SPACE) {
         gCW_CharsRxCursor = (gCW_CharsRxCursor + 1) % CHARS_SENT_SIZE;
-        gCW_CharsRx[gCW_CharsRxCursor] = 0;
+        gCW_CharsRx[gCW_CharsRxCursor] = CW_SYMBOL_SPACE;
         gUpdateDisplay = true;
         CW_ResetRx();
-    }
+    // }
 }
 
 void CW_UpdateCharsTx() {
@@ -548,6 +555,8 @@ void CW_TimeSlice10ms() {
         bDahJustReleased = false;
         bDitJustReleased = false;
         
+        static bool has_tx = false;
+
         if (gCWCounter == 0) {
             if (pulse_length)
                 pulse_length--;
@@ -564,22 +573,24 @@ void CW_TimeSlice10ms() {
                             empty_queue = 0;
                             cw_state = CW_STARTING_DIT;
                             last_tx = next_tx;
+                            has_tx = true;
                             // next_tx = 0;
                             goto StartingDit;
                         } else if (next_tx == 2) {
                             empty_queue = 0;
                             cw_state = CW_STARTING_DAH;
                             last_tx = next_tx;
+                            has_tx = true;
                             // next_tx = 0;
                             goto StartingDah;
                         } else {
                             CW_AddPause();
                             if (empty_queue < 8)
                                 empty_queue++;
-                            if (empty_queue > 3) {
+                            if (empty_queue == 3 && gCW_CharsTx[gCW_CharsTxCursor] != CW_SYMBOL_SPACE) {
                                 CW_ConfirmTxChar();
                             }
-                            if (empty_queue == 7) {
+                            if (empty_queue == 7 && has_tx) {
                                 CW_AddSpaceTx();
                                 cw_state = CW_QUEUE_EMPTY;
                             }
@@ -589,7 +600,7 @@ void CW_TimeSlice10ms() {
                         // if (next_tx)
                         break;
                     case CW_STARTING_DIT:
-    StartingDit:
+StartingDit:
                         if (!gSoundPlaying)
                             CW_EnablePulse();
                         CW_StartPulse();
@@ -607,7 +618,7 @@ void CW_TimeSlice10ms() {
                         cw_state = CW_CONSUME_NEXT;
                         break;
                     case CW_STARTING_DAH:
-    StartingDah:
+StartingDah:
                         if (!gSoundPlaying)
                             CW_EnablePulse();
                         CW_StartPulse();
@@ -654,6 +665,7 @@ void CW_TimeSlice10ms() {
         gCW_RxCounter = 0;
 
     static uint32_t empty_rx = 0;
+    static bool has_rx = false;
         
     if (gCW_RxCounter == 0) {
 
@@ -665,23 +677,25 @@ void CW_TimeSlice10ms() {
             gCW_DitsRx[gCW_DitsRxCursor / 64] |= (0b1ULL << (gCW_DitsRxCursor % 64));
             ditsRx |= (0b1 << ditsRxCursor);
             empty_rx = 0;
-        } else {
+            has_rx = true;
+        } else if (empty_rx < 8) {
             empty_rx++;
+            if (empty_rx == 3 && gCW_CharsRx[gCW_CharsRxCursor] != CW_SYMBOL_SPACE) {
+                CW_ConfirmRxChar();
+            }
+            if (empty_rx == 7 && has_rx) {
+                CW_AddSpaceRx();
+                empty_rx = 8;
+            }
+        } else {
+            goto Skip;
         }
-
-        if (empty_rx > 3) {
-            CW_ConfirmRxChar();
-        }
-        if (empty_rx == 7) {
-            CW_AddSpaceRx();
-        }
-        if (empty_rx == 9)
-            empty_rx = 8;
 
         gCW_DitsRxCursor = (gCW_DitsRxCursor + 1) % 128;
 
         CW_UpdateCharsRX();
         gUpdateDisplay  = true;
+Skip:
     }
 }
 
@@ -691,6 +705,8 @@ void CW_Key_DAH(bool bKeyPressed) {
     if (bDahPressed && !bKeyPressed)
         bDahJustReleased = true;
     bDahPressed = bKeyPressed;
+    if (bDahJustPressed && !gSoundPlaying)
+        CW_EnablePulse();
     // if (bDahPressed)
     //     LogUart("DAH Pressed\n");
     // else 
@@ -703,6 +719,8 @@ void CW_Key_DIT(bool bKeyPressed) {
     if (bDitPressed && !bKeyPressed)
         bDitJustReleased = true;
     bDitPressed = bKeyPressed;
+    if (bDitJustPressed && !gSoundPlaying)
+        CW_EnablePulse();
     // if (bDitPressed)
     //     LogUart("DIT Pressed\n");
     // else 

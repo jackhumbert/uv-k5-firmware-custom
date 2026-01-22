@@ -45,6 +45,9 @@
 #ifdef ENABLE_REGA
     #include "app/rega.h"
 #endif
+#ifdef ENABLE_CW
+    #include "cw.h"
+#endif
 
 #if defined(ENABLE_FMRADIO)
 static void ACTION_Scan_FM(bool bRestart);
@@ -128,6 +131,9 @@ void (*action_opt_table[])(void) = {
 #endif
     [ACTION_OPT_SQL_INC] = &ACTION_SqlInc,
     [ACTION_OPT_SQL_DEC] = &ACTION_SqlDec,
+#ifdef ENABLE_CW
+    [ACTION_OPT_TOGGLE_CW_TX] = &ACTION_ToggleCWTx,
+#endif
 };
 
 static_assert(ARRAY_SIZE(action_opt_table) == ACTION_OPT_LEN);
@@ -535,6 +541,10 @@ void ACTION_SqlDec(void) {
 
     gEeprom.SQUELCH_LEVEL = new_value;
     gVfoConfigureMode     = VFO_CONFIGURE;
+}
+
+void ACTION_ToggleCWTx(void) {
+    gCW_TxState = !(bool)gCW_TxState;
 }
 
 void ACTION_MainOnly(void)

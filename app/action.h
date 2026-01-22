@@ -54,6 +54,10 @@ void ACTION_SwitchDemodul(void);
 void ACTION_SqlInc(void);
 void ACTION_SqlDec(void);
 
+#ifdef ENABLE_CW
+    void ACTION_ToggleCWTx(void);
+#endif
+
 void ACTION_Handle(KEY_Code_t Key, bool bKeyPressed, bool bKeyHeld);
 
 #endif

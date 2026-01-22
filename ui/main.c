@@ -1135,7 +1135,11 @@ void UI_DisplayMain(void)
             case MODULATION_CW: {
                     // s = "";
                     if (gCW_State == CW_INPUT_ENABLED) {
-                        t = "CWT";
+                        if (gCW_TxState == CW_TX_ENABLED) {
+                            t = "CW-T";
+                        } else {
+                            t = "CW-P";
+                        }
                         // s = "INPUT";
                     } else {
                         t = "CW";
@@ -1577,7 +1581,7 @@ void UI_DisplayMain(void)
                 // normal character
 
                 c = gCW_Values[charBuffer[i]];
-    RegularChar:    
+RegularChar:    
                 const uint8_t char_width = ARRAY_SIZE(gFontSmall[0]);
                 const unsigned int char_spacing = char_width + 1;
                 
@@ -1599,6 +1603,7 @@ void UI_DisplayMain(void)
                     offset += 3 + 1;
                 }
                 for (uint8_t j = 0; j < 3 * 2 + 1; j++) {
+                    // shift the 3x5 chars down 2 pixels, add line above
                     const uint8_t line = (*(buffer + start + j) << 2) | 0b00000001;
                     memcpy(buffer + start + j, &line, 1);
                 }
@@ -1636,23 +1641,6 @@ void UI_DisplayMain(void)
             }
         }
     }
-    // // CW RX
-    // {
-    //     const char hollowBar[] = {  0b00000000 };
-    //     const char simpleBar[] = {  0b00111110 };
-    //     const char currentPos[] = { 0b01100011 };
-    //     uint8_t *p_line = gFrameBuffer[6];
-    //     // memcpy(p_line, &gCWDitsSent, 8);
-    //     for (uint8_t i = 0; i < 128; i++) {
-    //         if (i == gCW_DitsRxCursor) {
-    //             memcpy(p_line + i, &currentPos, ARRAY_SIZE(currentPos));
-    //         } else if (gCW_DitsRx[i / 64] & (1ULL << (i % 64))) {
-    //             memcpy(p_line + i, &simpleBar, ARRAY_SIZE(simpleBar));
-    //         } else {
-    //             memcpy(p_line + i, &hollowBar, ARRAY_SIZE(hollowBar));
-    //         }
-    //     }
-    // }
 #endif
 
     ST7565_BlitFullScreen();

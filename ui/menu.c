@@ -467,6 +467,9 @@ const t_sidefunction gSubMenu_SIDEFUNCTIONS[] =
 #endif
     {"SQL+",            ACTION_OPT_SQL_INC},
     {"SQL-",            ACTION_OPT_SQL_DEC},
+#ifdef ENABLE_CW
+    {"CW\nTogg Tx",    ACTION_OPT_TOGGLE_CW_TX},
+#endif
 };
 
 const uint8_t gSubMenu_SIDEFUNCTIONS_size = ARRAY_SIZE(gSubMenu_SIDEFUNCTIONS);

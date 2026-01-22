@@ -129,6 +129,9 @@ enum ACTION_OPT_t {
 #endif
     ACTION_OPT_SQL_INC,
     ACTION_OPT_SQL_DEC,
+#ifdef ENABLE_CW
+    ACTION_OPT_TOGGLE_CW_TX,
+#endif
     ACTION_OPT_LEN
 };
 
