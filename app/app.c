@@ -1428,7 +1428,8 @@ void APP_TimeSlice10ms(void)
 #endif
 
 #ifdef ENABLE_CW
-    if (gCW_State == CW_INPUT_ENABLED) {
+    // if (gCW_State == CW_INPUT_ENABLED) {
+    if (gRxVfo->Modulation == MODULATION_CW) {
         CW_TimeSlice10ms();
     }
 #endif

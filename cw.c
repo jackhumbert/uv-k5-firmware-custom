@@ -276,8 +276,8 @@ static void CW_StartPulse() {
         BK4819_REG_30_ENABLE_AF_DAC    | // enable beep
         BK4819_REG_30_ENABLE_DISC_MODE |
         BK4819_REG_30_ENABLE_PLL_VCO   |
-        // BK4819_REG_30_ENABLE_PA_GAIN   | // enable PA
-        BK4819_REG_30_DISABLE_PA_GAIN   |
+        BK4819_REG_30_ENABLE_PA_GAIN   | // enable PA
+        // BK4819_REG_30_DISABLE_PA_GAIN   |
         BK4819_REG_30_DISABLE_MIC_ADC  |
         BK4819_REG_30_ENABLE_TX_DSP    |
         // BK4819_REG_30_DISABLE_TX_DSP    | // disables TX
@@ -358,6 +358,7 @@ static const uint16_t CW_dit_duration = 120 / CW_wpm; // duration of a dit in 10
 // static const uint16_t CW_word_gap = 7 * CW_dit_duration; // gap between words
 
 volatile uint16_t gCWCounter = 0;
+volatile uint16_t gCW_RxCounter = 0;
 uint16_t next_tx = 0; // 0 stop, 1 dit, 2 dah
 uint16_t last_tx = 0;
 uint16_t pulse_length = 0;
@@ -372,216 +373,264 @@ enum {
     CW_ENDING_DAH
 } cw_state = CW_CONSUME_NEXT;
 
-uint8_t gCW_CharsSent[CHARS_SENT_SIZE] = {0};
-uint8_t gCW_CharCursor = 0;
+uint8_t gCW_CharsTx[CHARS_SENT_SIZE] = {0};
+uint8_t gCW_CharsTxCursor = 0;
 
-static uint32_t ditsSent = 0;
-static uint8_t ditCursor = 0;
+uint8_t gCW_CharsRx[CHARS_SENT_SIZE] = {0};
+uint8_t gCW_CharsRxCursor = 0;
 
-uint64_t gCW_DitsSent[3] = {0};
-uint8_t gCW_DitsSentCursor = 0;
+static uint32_t ditsTx = 0;
+static uint8_t ditsTxCursor = 0;
 
-void CW_ResetTX() {
-    ditsSent = 0;
-    ditCursor = 0;
+uint64_t gCW_DitsTx[3] = {0};
+uint8_t gCW_DitsTxCursor = 0;
+
+static uint32_t ditsRx = 0;
+static uint8_t ditsRxCursor = 0;
+
+uint64_t gCW_DitsRx[3] = {0};
+uint8_t gCW_DitsRxCursor = 0;
+
+void CW_ResetTx() {
+    ditsTx = 0;
+    ditsTxCursor = 0;
+}
+
+void CW_ResetRx() {
+    ditsRx = 0;
+    ditsRxCursor = 0;
 }
 
 void CW_AddDah() {
-    ditsSent |= (0b111 << ditCursor);
-    ditCursor += 4;
+    ditsTx |= (0b111 << ditsTxCursor);
+    ditsTxCursor += 4;
 
-    gCW_DitsSent[gCW_DitsSentCursor / 64] &= ~(0b1111ULL << (gCW_DitsSentCursor % 64));
-    gCW_DitsSent[gCW_DitsSentCursor / 64] |= (0b111ULL << (gCW_DitsSentCursor % 64));
-    gCW_DitsSentCursor = (gCW_DitsSentCursor + 4) % 128;
+    gCW_DitsTx[gCW_DitsTxCursor / 64] &= ~(0b1111ULL << (gCW_DitsTxCursor % 64));
+    gCW_DitsTx[gCW_DitsTxCursor / 64] |= (0b111ULL << (gCW_DitsTxCursor % 64));
+    gCW_DitsTxCursor = (gCW_DitsTxCursor + 4) % 128;
     gUpdateDisplay  = true;
 }
 
 void CW_AddDit() {
-    ditsSent |= (0b1 << ditCursor);
-    ditCursor += 2;
+    ditsTx |= (0b1 << ditsTxCursor);
+    ditsTxCursor += 2;
 
-    gCW_DitsSent[gCW_DitsSentCursor / 64] &= ~(0b11ULL << (gCW_DitsSentCursor % 64));
-    gCW_DitsSent[gCW_DitsSentCursor / 64] |= (0b1ULL << (gCW_DitsSentCursor % 64));
-    gCW_DitsSentCursor = (gCW_DitsSentCursor + 2) % 128;
+    gCW_DitsTx[gCW_DitsTxCursor / 64] &= ~(0b11ULL << (gCW_DitsTxCursor % 64));
+    gCW_DitsTx[gCW_DitsTxCursor / 64] |= (0b1ULL << (gCW_DitsTxCursor % 64));
+    gCW_DitsTxCursor = (gCW_DitsTxCursor + 2) % 128;
     gUpdateDisplay  = true;
 }
 
 void CW_AddPause() {
-    if (ditsSent && ditCursor < 31)
-        ditCursor += 1;
+    if (ditsTx && ditsTxCursor < 31)
+        ditsTxCursor += 1;
 
-    gCW_DitsSent[gCW_DitsSentCursor / 64] &= ~(0b1ULL << (gCW_DitsSentCursor % 64));
-    gCW_DitsSentCursor = (gCW_DitsSentCursor + 1) % 128;
+    gCW_DitsTx[gCW_DitsTxCursor / 64] &= ~(0b1ULL << (gCW_DitsTxCursor % 64));
+    gCW_DitsTxCursor = (gCW_DitsTxCursor + 1) % 128;
     gUpdateDisplay  = true;
 }
 
-void CW_ConfirmChar() {
-    if (gCW_CharsSent[gCW_CharCursor] != 0) {
-        // if (gCW_CharCursor < CHARS_SENT_SIZE) {
-        //     gCW_CharCursor++;
+void CW_ConfirmTxChar() {
+    if (gCW_CharsTx[gCW_CharsTxCursor] != 0) {
+        // if (gCW_CharsTxCursor < CHARS_SENT_SIZE) {
+        //     gCW_CharsTxCursor++;
         // } else {
-        //     memset(gCW_CharsSent, 0, CHARS_SENT_SIZE);
+        //     memset(gCW_CharsTx, 0, CHARS_SENT_SIZE);
         //     gUpdateDisplay  = true;
-        //     gCW_CharCursor = 0;
+        //     gCW_CharsTxCursor = 0;
         // }
-        gCW_CharCursor = (gCW_CharCursor + 1) % CHARS_SENT_SIZE;
-        gCW_CharsSent[gCW_CharCursor] = 0;
+        gCW_CharsTxCursor = (gCW_CharsTxCursor + 1) % CHARS_SENT_SIZE;
+        gCW_CharsTx[gCW_CharsTxCursor] = 0;
         gUpdateDisplay = true;
-        CW_ResetTX();
+        CW_ResetTx();
     }
 }
 
-void CW_UpdateCharsSent() {
+void CW_ConfirmRxChar() {
+    if (gCW_CharsRx[gCW_CharsRxCursor] != 0) {
+        gCW_CharsRxCursor = (gCW_CharsRxCursor + 1) % CHARS_SENT_SIZE;
+        gCW_CharsRx[gCW_CharsRxCursor] = 0;
+        gUpdateDisplay = true;
+        CW_ResetRx();
+    }
+}
+
+void CW_UpdateCharsTx() {
     uint32_t index = 0xFFFFFFFF;
     for (uint8_t i = 0; i < ARRAY_SIZE(morse_values); i++) {
-        if (morse_values[i] == ditsSent) {
+        if (morse_values[i] == ditsTx) {
             index = i;
             break;
         }
     }
     // if (index != 0xFFFFFFFF && index < ARRAY_SIZE(gCW_Values)) {
-    //     gCW_CharsSent[gCW_CharCursor] = gCW_Values[index];
+    //     gCW_CharsTx[gCW_CharsTxCursor] = gCW_Values[index];
     //     gUpdateDisplay  = true;
     // } else if (index != 0xFFFFFFFF) {
-    //     gCW_CharsSent[gCW_CharCursor] = 31;
-    //     CW_ConfirmChar();
-    //     gCW_CharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][0];
-    //     CW_ConfirmChar();
-    //     gCW_CharsSent[gCW_CharCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][1];
-    //     CW_ConfirmChar();
+    //     gCW_CharsTx[gCW_CharsTxCursor] = 31;
+    //     CW_ConfirmTxChar();
+    //     gCW_CharsTx[gCW_CharsTxCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][0];
+    //     CW_ConfirmTxChar();
+    //     gCW_CharsTx[gCW_CharsTxCursor] = gCW_Prosigns[index - ARRAY_SIZE(gCW_Values)][1];
+    //     CW_ConfirmTxChar();
     if (index != 0xFFFFFFFF) {
-        gCW_CharsSent[gCW_CharCursor] = index;
+        gCW_CharsTx[gCW_CharsTxCursor] = index;
         gUpdateDisplay  = true;
-    } else if (ditsSent) {
-        gCW_CharsSent[gCW_CharCursor] = ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns);
+    } else if (ditsTx) {
+        gCW_CharsTx[gCW_CharsTxCursor] = CW_SYMBOL_ERROR;
         gUpdateDisplay  = true;
     }
 }
 
-void CW_AddSpace() {
-    gCW_CharsSent[gCW_CharCursor] = CW_SYMBOL_SPACE;
+void CW_UpdateCharsRX() {
+    uint32_t index = 0xFFFFFFFF;
+    for (uint8_t i = 0; i < ARRAY_SIZE(morse_values); i++) {
+        if (morse_values[i] == ditsRx) {
+            index = i;
+            break;
+        }
+    }
+    if (index != 0xFFFFFFFF) {
+        gCW_CharsRx[gCW_CharsRxCursor] = index;
+        gUpdateDisplay  = true;
+    } else if (ditsRx) {
+        gCW_CharsRx[gCW_CharsRxCursor] = CW_SYMBOL_ERROR;
+        gUpdateDisplay  = true;
+    }
+}
+
+void CW_AddSpaceTx() {
+    gCW_CharsTx[gCW_CharsTxCursor] = CW_SYMBOL_SPACE;
     gUpdateDisplay  = true;
-    CW_ConfirmChar();
+    CW_ConfirmTxChar();
+}
+
+void CW_AddSpaceRx() {
+    gCW_CharsRx[gCW_CharsRxCursor] = CW_SYMBOL_SPACE;
+    gUpdateDisplay  = true;
+    CW_ConfirmRxChar();
 }
 
 void CW_TimeSlice10ms() {
-    gCWCounter++;
-    if (gCWCounter >= CW_dit_duration)
-        gCWCounter = 0;
-   
-    if (bDitJustPressed) {
-        next_tx = 1;
-    } else if (bDahJustPressed) {
-        next_tx = 2;
-    } else if (next_tx == 0) {
-        // if (bDahPressed && bDitJustReleased) {
-        //     next_tx = 2;
-        // } else if (bDitPressed && bDahJustReleased) {
-        //     next_tx = 1;
-        // } else 
-        if (bDahPressed && bDitPressed) {
-            next_tx = last_tx;
-        }
-    } else if (bDitJustReleased) {
-        if (bDahPressed) {
-            next_tx = 2;
-        } else {
-            next_tx = 0;
-        }
-    } else if (bDahJustReleased) {
-        if (bDitPressed) {
-            next_tx = 1;
-        } else {
-            next_tx = 0;
-        }
-    }
-    bDitJustPressed = false;
-    bDahJustPressed = false;
-    bDahJustReleased = false;
-    bDitJustReleased = false;
+    if (gCW_State == CW_INPUT_ENABLED) {
+        gCWCounter++;
+        if (gCWCounter >= CW_dit_duration)
+            gCWCounter = 0;
     
-    if (gCWCounter == 0) {
-        if (pulse_length)
-            pulse_length--;
-        if (!pulse_length) {
-            switch (cw_state) {
-                case CW_QUEUE_EMPTY:
-                    if (gSoundPlaying) {
+        if (bDitJustPressed) {
+            next_tx = 1;
+        } else if (bDahJustPressed) {
+            next_tx = 2;
+        } else if (next_tx == 0) {
+            // if (bDahPressed && bDitJustReleased) {
+            //     next_tx = 2;
+            // } else if (bDitPressed && bDahJustReleased) {
+            //     next_tx = 1;
+            // } else 
+            if (bDahPressed && bDitPressed) {
+                next_tx = last_tx;
+            }
+        } else if (bDitJustReleased) {
+            if (bDahPressed) {
+                next_tx = 2;
+            } else {
+                next_tx = 0;
+            }
+        } else if (bDahJustReleased) {
+            if (bDitPressed) {
+                next_tx = 1;
+            } else {
+                next_tx = 0;
+            }
+        }
+        bDitJustPressed = false;
+        bDahJustPressed = false;
+        bDahJustReleased = false;
+        bDitJustReleased = false;
+        
+        if (gCWCounter == 0) {
+            if (pulse_length)
+                pulse_length--;
+            if (!pulse_length) {
+                switch (cw_state) {
+                    case CW_QUEUE_EMPTY:
+                        if (gSoundPlaying) {
+                            CW_EndPulse();
+                            CW_DisablePulse();
+                        }
+                        [[fallthrough]];
+                    case CW_CONSUME_NEXT:
+                        if (next_tx == 1) {
+                            empty_queue = 0;
+                            cw_state = CW_STARTING_DIT;
+                            last_tx = next_tx;
+                            // next_tx = 0;
+                            goto StartingDit;
+                        } else if (next_tx == 2) {
+                            empty_queue = 0;
+                            cw_state = CW_STARTING_DAH;
+                            last_tx = next_tx;
+                            // next_tx = 0;
+                            goto StartingDah;
+                        } else {
+                            CW_AddPause();
+                            if (empty_queue < 8)
+                                empty_queue++;
+                            if (empty_queue > 3) {
+                                CW_ConfirmTxChar();
+                            }
+                            if (empty_queue == 7) {
+                                CW_AddSpaceTx();
+                                cw_state = CW_QUEUE_EMPTY;
+                            }
+                            last_tx = next_tx;
+                            next_tx = 0;
+                        }
+                        // if (next_tx)
+                        break;
+                    case CW_STARTING_DIT:
+    StartingDit:
+                        if (!gSoundPlaying)
+                            CW_EnablePulse();
+                        CW_StartPulse();
+                        pulse_length = 1;
+                        cw_state = CW_ENDING_DIT;
+                        CW_AddDit();
+                        // last_tx = next_tx;
+                        // next_tx = 0;
+                        break;
+                    case CW_ENDING_DIT:
                         CW_EndPulse();
-                        CW_DisablePulse();
-                    }
-                    [[fallthrough]];
-                case CW_CONSUME_NEXT:
-                    if (next_tx == 1) {
-                        empty_queue = 0;
-                        cw_state = CW_STARTING_DIT;
-                        last_tx = next_tx;
+                        pulse_length = 1;
+                        // last_tx = next_tx;
                         // next_tx = 0;
-                        goto StartingDit;
-                    } else if (next_tx == 2) {
-                        empty_queue = 0;
-                        cw_state = CW_STARTING_DAH;
-                        last_tx = next_tx;
+                        cw_state = CW_CONSUME_NEXT;
+                        break;
+                    case CW_STARTING_DAH:
+    StartingDah:
+                        if (!gSoundPlaying)
+                            CW_EnablePulse();
+                        CW_StartPulse();
+                        pulse_length = 3;
+                        cw_state = CW_ENDING_DAH;
+                        CW_AddDah();
+                        // last_tx = next_tx;
                         // next_tx = 0;
-                        goto StartingDah;
-                    } else {
-                        CW_AddPause();
-                        if (empty_queue < 8)
-                            empty_queue++;
-                        if (empty_queue > 3) {
-                            CW_ConfirmChar();
-                        }
-                        if (empty_queue == 7) {
-                            CW_AddSpace();
-                            cw_state = CW_QUEUE_EMPTY;
-                        }
-                        last_tx = next_tx;
-                        next_tx = 0;
-                    }
-                    // if (next_tx)
-                    break;
-                case CW_STARTING_DIT:
-StartingDit:
-                    if (!gSoundPlaying)
-                        CW_EnablePulse();
-                    CW_StartPulse();
-                    pulse_length = 1;
-                    cw_state = CW_ENDING_DIT;
-                    CW_AddDit();
-                    // last_tx = next_tx;
-                    // next_tx = 0;
-                    break;
-                case CW_ENDING_DIT:
-                    CW_EndPulse();
-                    pulse_length = 1;
-                    // last_tx = next_tx;
-                    // next_tx = 0;
-                    cw_state = CW_CONSUME_NEXT;
-                    break;
-                case CW_STARTING_DAH:
-StartingDah:
-                    if (!gSoundPlaying)
-                        CW_EnablePulse();
-                    CW_StartPulse();
-                    pulse_length = 3;
-                    cw_state = CW_ENDING_DAH;
-                    CW_AddDah();
-                    // last_tx = next_tx;
-                    // next_tx = 0;
-                    break;
-                case CW_ENDING_DAH:
-                    CW_EndPulse();
-                    pulse_length = 1;
-                    // last_tx = next_tx;
-                    // next_tx = 0;
-                    cw_state = CW_CONSUME_NEXT;
-                    break;
-                default:
-                    break;
-            } 
+                        break;
+                    case CW_ENDING_DAH:
+                        CW_EndPulse();
+                        pulse_length = 1;
+                        // last_tx = next_tx;
+                        // next_tx = 0;
+                        cw_state = CW_CONSUME_NEXT;
+                        break;
+                    default:
+                        break;
+                } 
+            }
+            CW_UpdateCharsTx();
         }
     }
-    CW_UpdateCharsSent();
     // if (bDitPressed || bDahPressed) {
     //     if (!gSoundPlaying) {
     //         if (gCurrentFunction == FUNCTION_RECEIVE)
@@ -599,6 +648,41 @@ StartingDah:
     //         gSoundPlaying = false;
     //     }   
     // }
+    
+    gCW_RxCounter++;
+    if (gCW_RxCounter >= CW_dit_duration)
+        gCW_RxCounter = 0;
+
+    static uint32_t empty_rx = 0;
+        
+    if (gCW_RxCounter == 0) {
+
+        if (ditsRx && ditsRxCursor < 31)
+            ditsRxCursor += 1;
+            
+        gCW_DitsRx[gCW_DitsRxCursor / 64] &= ~(0b1ULL << (gCW_DitsRxCursor % 64));
+        if (g_SquelchLost) {
+            gCW_DitsRx[gCW_DitsRxCursor / 64] |= (0b1ULL << (gCW_DitsRxCursor % 64));
+            ditsRx |= (0b1 << ditsRxCursor);
+            empty_rx = 0;
+        } else {
+            empty_rx++;
+        }
+
+        if (empty_rx > 3) {
+            CW_ConfirmRxChar();
+        }
+        if (empty_rx == 7) {
+            CW_AddSpaceRx();
+        }
+        if (empty_rx == 9)
+            empty_rx = 8;
+
+        gCW_DitsRxCursor = (gCW_DitsRxCursor + 1) % 128;
+
+        CW_UpdateCharsRX();
+        gUpdateDisplay  = true;
+    }
 }
 
 void CW_Key_DAH(bool bKeyPressed) {

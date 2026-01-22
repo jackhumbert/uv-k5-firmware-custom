@@ -1527,7 +1527,11 @@ void UI_DisplayMain(void)
     //if(gEeprom.MENU_LOCK == false)
     //{
     //#endif
-    if (isMainOnly() && !gDTMF_InputMode)
+    if (isMainOnly() && !gDTMF_InputMode
+#ifdef ENABLE_CW
+        && gEeprom.VfoInfo[gEeprom.RX_VFO].Modulation != MODULATION_CW
+#endif
+    )
     {
         sprintf(String, "VFO %s", activeTxVFO ? "B" : "A");
         UI_PrintStringSmallBold(String, 92, 0, 6);
@@ -1542,79 +1546,113 @@ void UI_DisplayMain(void)
 #endif
 
 #ifdef ENABLE_CW
-    uint32_t offset = 1;
-    // UI_PrintStringSmallNormal(gCWCharsSent, i, 0, 3);
-    for (uint8_t i = 0; i < CHARS_SENT_SIZE; i++) {
-        uint8_t * buffer = gFrameBuffer[3];
-        uint32_t start = offset;
-
-        char c = ' ';
-
-        if (!gCW_CharsSent[i])
-            goto RegularChar;
-
-        if (gCW_CharsSent[i] < ARRAY_SIZE(gCW_Values)) {
-            // normal character
-
-            c = gCW_Values[gCW_CharsSent[i]];
-RegularChar:    
-            const uint8_t char_width = ARRAY_SIZE(gFontSmall[0]);
-            const unsigned int char_spacing = char_width + 1;
-            
-            if (c > ' ' && c < 127) {
-                const unsigned int index = c - ' ' - 1;
-                memcpy(buffer + offset, (uint8_t *)gFontSmall + index * char_width, char_width);
-                offset += char_spacing + 1;
-            } else if (c == ' ') {
-                offset += char_spacing + 1;
-            }
-        } else if (gCW_CharsSent[i] < ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns)) {
-            // prosign with line above two chars
-            const char * cs = gCW_Prosigns[gCW_CharsSent[i] - ARRAY_SIZE(gCW_Values)];
-            offset -= 1;
-            start -= 1;
-            for (uint8_t j = 0; j < 2; j++) {
-                const unsigned int index = cs[j] - ' ';
-                memcpy(buffer + offset, (uint8_t *)gFont3x5 + index * 3, 3);
-                offset += 3 + 1;
-            }
-            for (uint8_t j = 0; j < 3 * 2 + 1; j++) {
-                const uint8_t line = (*(buffer + start + j) << 2) | 0b00000001;
-                memcpy(buffer + start + j, &line, 1);
-            }
-            offset += 1;
-        } else if (gCW_CharsSent[i] == CW_SYMBOL_ERROR){
-            c = '~';
-            goto RegularChar;
-        } else if (gCW_CharsSent[i] == CW_SYMBOL_SPACE){
-            c = ' ';
-            goto RegularChar;
+    for (uint8_t line = 3; line < 6; line += 2) {
+        uint32_t offset = 1;
+        uint8_t * charBuffer;
+        uint8_t cursor;
+        uint64_t * ditsBuffer;
+        uint8_t ditsCursor;
+        if (line == 3) {
+            charBuffer = gCW_CharsTx;
+            cursor = gCW_CharsTxCursor;
+            ditsBuffer = gCW_DitsTx;
+            ditsCursor = gCW_DitsTxCursor;
+        } else {
+            charBuffer = gCW_CharsRx;
+            cursor = gCW_CharsRxCursor;
+            ditsBuffer = gCW_DitsRx;
+            ditsCursor = gCW_DitsRxCursor;
         }
+        // UI_PrintStringSmallNormal(gCWCharsSent, i, 0, 3);
+        for (uint8_t i = 0; i < CHARS_SENT_SIZE; i++) {
+            uint8_t * buffer = gFrameBuffer[line];
+            uint32_t start = offset;
 
-        // invert current char
-        if (i == gCW_CharCursor) {
-            for (uint8_t j = start - 1; j < offset - 1; j++) {
-                const uint8_t line = *(buffer + j) ^ 0b11111111;
-                memcpy(buffer + j, &line, 1);
+            char c = ' ';
+
+            if (!charBuffer[i])
+                goto RegularChar;
+
+            if (charBuffer[i] < ARRAY_SIZE(gCW_Values)) {
+                // normal character
+
+                c = gCW_Values[charBuffer[i]];
+    RegularChar:    
+                const uint8_t char_width = ARRAY_SIZE(gFontSmall[0]);
+                const unsigned int char_spacing = char_width + 1;
+                
+                if (c > ' ' && c < 127) {
+                    const unsigned int index = c - ' ' - 1;
+                    memcpy(buffer + offset, (uint8_t *)gFontSmall + index * char_width, char_width);
+                    offset += char_spacing + 1;
+                } else if (c == ' ') {
+                    offset += char_spacing + 1;
+                }
+            } else if (charBuffer[i] < ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns)) {
+                // prosign with line above two chars
+                const char * cs = gCW_Prosigns[charBuffer[i] - ARRAY_SIZE(gCW_Values)];
+                offset -= 1;
+                start -= 1;
+                for (uint8_t j = 0; j < 2; j++) {
+                    const unsigned int index = cs[j] - ' ';
+                    memcpy(buffer + offset, (uint8_t *)gFont3x5 + index * 3, 3);
+                    offset += 3 + 1;
+                }
+                for (uint8_t j = 0; j < 3 * 2 + 1; j++) {
+                    const uint8_t line = (*(buffer + start + j) << 2) | 0b00000001;
+                    memcpy(buffer + start + j, &line, 1);
+                }
+                offset += 1;
+            } else if (charBuffer[i] == CW_SYMBOL_ERROR){
+                c = '~';
+                goto RegularChar;
+            } else if (charBuffer[i] == CW_SYMBOL_SPACE){
+                c = ' ';
+                goto RegularChar;
+            }
+
+            // invert current char
+            if (i == cursor) {
+                for (uint8_t j = start - 1; j < offset - 1; j++) {
+                    const uint8_t line = *(buffer + j) ^ 0b11111111;
+                    memcpy(buffer + j, &line, 1);
+                }
+            }
+        }
+        {
+            const char hollowBar[] = {  0b00000000 };
+            const char simpleBar[] = {  0b00111110 };
+            const char currentPos[] = { 0b01100011 };
+            uint8_t *p_line = gFrameBuffer[line + 1];
+            // memcpy(p_line, &gCWDitsSent, 8);
+            for (uint8_t i = 0; i < 128; i++) {
+                if (i == ditsCursor) {
+                    memcpy(p_line + i, &currentPos, ARRAY_SIZE(currentPos));
+                } else if (ditsBuffer[i / 64] & (1ULL << (i % 64))) {
+                    memcpy(p_line + i, &simpleBar, ARRAY_SIZE(simpleBar));
+                } else {
+                    memcpy(p_line + i, &hollowBar, ARRAY_SIZE(hollowBar));
+                }
             }
         }
     }
-    {
-        const char hollowBar[] = {  0b00000000 };
-        const char simpleBar[] = {  0b00111110 };
-        const char currentPos[] = { 0b01100011 };
-        uint8_t *p_line = gFrameBuffer[4];
-        // memcpy(p_line, &gCWDitsSent, 8);
-        for (uint8_t i = 0; i < 128; i++) {
-            if (i == gCW_DitsSentCursor) {
-                memcpy(p_line + i, &currentPos, ARRAY_SIZE(currentPos));
-            } else if (gCW_DitsSent[i / 64] & (1ULL << (i % 64))) {
-                memcpy(p_line + i, &simpleBar, ARRAY_SIZE(simpleBar));
-            } else {
-                memcpy(p_line + i, &hollowBar, ARRAY_SIZE(hollowBar));
-            }
-        }
-    }
+    // // CW RX
+    // {
+    //     const char hollowBar[] = {  0b00000000 };
+    //     const char simpleBar[] = {  0b00111110 };
+    //     const char currentPos[] = { 0b01100011 };
+    //     uint8_t *p_line = gFrameBuffer[6];
+    //     // memcpy(p_line, &gCWDitsSent, 8);
+    //     for (uint8_t i = 0; i < 128; i++) {
+    //         if (i == gCW_DitsRxCursor) {
+    //             memcpy(p_line + i, &currentPos, ARRAY_SIZE(currentPos));
+    //         } else if (gCW_DitsRx[i / 64] & (1ULL << (i % 64))) {
+    //             memcpy(p_line + i, &simpleBar, ARRAY_SIZE(simpleBar));
+    //         } else {
+    //             memcpy(p_line + i, &hollowBar, ARRAY_SIZE(hollowBar));
+    //         }
+    //     }
+    // }
 #endif
 
     ST7565_BlitFullScreen();

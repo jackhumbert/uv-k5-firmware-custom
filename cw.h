@@ -39,15 +39,21 @@ extern CWState_t gCW_State;
 // as big as one line with UI_PrintStringSmallNormal
 #define CHARS_SENT_SIZE 16
 
-extern uint8_t gCW_CharsSent[CHARS_SENT_SIZE];
-extern uint8_t gCW_CharCursor;
+extern uint8_t gCW_CharsTx[CHARS_SENT_SIZE];
+extern uint8_t gCW_CharsTxCursor;
 
 // 3 to prevent bad mem access
-extern uint64_t gCW_DitsSent[3];
-extern uint8_t gCW_DitsSentCursor;
+extern uint64_t gCW_DitsTx[3];
+extern uint8_t gCW_DitsTxCursor;
 
 extern char gCW_Values[53];
 extern char gCW_Prosigns[11][2];
+
+extern uint8_t gCW_CharsRx[CHARS_SENT_SIZE];
+extern uint8_t gCW_CharsRxCursor;
+
+extern uint64_t gCW_DitsRx[3];
+extern uint8_t gCW_DitsRxCursor;
 
 enum CW_SYMBOLS {
     CW_SYMBOL_ERROR = ARRAY_SIZE(gCW_Values) + ARRAY_SIZE(gCW_Prosigns),
@@ -56,3 +62,6 @@ enum CW_SYMBOLS {
 
 
 #endif
+
+// TODO
+// * cursor shouldn't advance initially (should stay at pos 0)
