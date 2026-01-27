@@ -1556,20 +1556,45 @@ void UI_DisplayMain(void)
         uint8_t cursor;
         uint64_t * ditsBuffer;
         uint8_t ditsCursor;
+        char * tx_rx = "";
+        
         if (line == 3) {
             charBuffer = gCW_CharsTx;
             cursor = gCW_CharsTxCursor;
             ditsBuffer = gCW_DitsTx;
             ditsCursor = gCW_DitsTxCursor;
+            tx_rx = "TX";
         } else {
             charBuffer = gCW_CharsRx;
             cursor = gCW_CharsRxCursor;
             ditsBuffer = gCW_DitsRx;
             ditsCursor = gCW_DitsRxCursor;
+            tx_rx = "RX";
         }
+
+        // raw signal
+        {
+            const char hollowBar[] = {  0b00000000 };
+            const char simpleBar[] = {  0b00111110 };
+            const char currentPos[] = { 0b01100011 };
+            uint8_t *p_line = gFrameBuffer[line];
+            // memcpy(p_line, &gCWDitsSent, 8);
+            for (uint8_t i = 0; i < DITS_SIZE; i++) {
+                if (i == ditsCursor) {
+                    memcpy(p_line + i + DITS_OFFSET, &currentPos, ARRAY_SIZE(currentPos));
+                } else if (ditsBuffer[i / 64] & (1ULL << (i % 64))) {
+                    memcpy(p_line + i + DITS_OFFSET, &simpleBar, ARRAY_SIZE(simpleBar));
+                } else {
+                    memcpy(p_line + i + DITS_OFFSET, &hollowBar, ARRAY_SIZE(hollowBar));
+                }
+            }
+        }
+        GUI_DisplaySmallest(tx_rx, 0, line * 8 + 1, false, true);
+
+        // decoded text
         // UI_PrintStringSmallNormal(gCWCharsSent, i, 0, 3);
         for (uint8_t i = 0; i < CHARS_SENT_SIZE; i++) {
-            uint8_t * buffer = gFrameBuffer[line];
+            uint8_t * buffer = gFrameBuffer[line + 1];
             uint32_t start = offset;
 
             char c = ' ';
@@ -1604,8 +1629,8 @@ RegularChar:
                 }
                 for (uint8_t j = 0; j < 3 * 2 + 1; j++) {
                     // shift the 3x5 chars down 2 pixels, add line above
-                    const uint8_t line = (*(buffer + start + j) << 2) | 0b00000001;
-                    memcpy(buffer + start + j, &line, 1);
+                    const uint8_t pline = (*(buffer + start + j) << 2) | 0b00000001;
+                    memcpy(buffer + start + j, &pline, 1);
                 }
                 offset += 1;
             } else if (charBuffer[i] == CW_SYMBOL_ERROR){
@@ -1619,24 +1644,8 @@ RegularChar:
             // invert current char
             if (i == cursor) {
                 for (uint8_t j = start - 1; j < offset - 1; j++) {
-                    const uint8_t line = *(buffer + j) ^ 0b11111111;
-                    memcpy(buffer + j, &line, 1);
-                }
-            }
-        }
-        {
-            const char hollowBar[] = {  0b00000000 };
-            const char simpleBar[] = {  0b00111110 };
-            const char currentPos[] = { 0b01100011 };
-            uint8_t *p_line = gFrameBuffer[line + 1];
-            // memcpy(p_line, &gCWDitsSent, 8);
-            for (uint8_t i = 0; i < 128; i++) {
-                if (i == ditsCursor) {
-                    memcpy(p_line + i, &currentPos, ARRAY_SIZE(currentPos));
-                } else if (ditsBuffer[i / 64] & (1ULL << (i % 64))) {
-                    memcpy(p_line + i, &simpleBar, ARRAY_SIZE(simpleBar));
-                } else {
-                    memcpy(p_line + i, &hollowBar, ARRAY_SIZE(hollowBar));
+                    const uint8_t pline = *(buffer + j) ^ 0b11111111;
+                    memcpy(buffer + j, &pline, 1);
                 }
             }
         }
